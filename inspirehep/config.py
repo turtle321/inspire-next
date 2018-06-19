@@ -44,7 +44,7 @@ SERVER_NAME = 'localhost:5000'
 
 # Feature flags
 # =============
-FEATURE_FLAG_ENABLE_ORCID_PUSH = False
+FEATURE_FLAG_ENABLE_ORCID_PUSH = True
 # Only push to ORCIDs that match this regex.
 # Examples:
 #   any ORCID -> ".*"
