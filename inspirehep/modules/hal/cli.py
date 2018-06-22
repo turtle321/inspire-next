@@ -28,6 +28,10 @@ from flask.cli import with_appcontext
 
 from .bulk_push import run
 
+import random
+import requests
+from time_execution import time_execution
+
 
 @click.group()
 def hal():
@@ -37,4 +41,13 @@ def hal():
 @hal.command()
 @with_appcontext
 def push():
-    run()
+    # run()
+    ping_google()
+
+
+@time_execution
+def ping_google():
+    status_code = random.choice([200, 200, 200, 200, 401, 403, 404, 500])
+    response = requests.get('http://httpstat.us/{}'.format(status_code))
+    response.raise_for_status()
+    return response
