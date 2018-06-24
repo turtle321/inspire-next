@@ -108,14 +108,17 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
         )
         with log_time_context('Pushing updated record', LOGGER), \
                 distributed_lock(lock_name, blocking=True):
-            orcid_api.update_record(
-                orcid_id=orcid,
-                token=oauth_token,
-                request_type='work',
-                data=orcid_xml,
-                put_code=putcode,
-                content_type='application/orcid+xml',
-            )
+            try:################################################################################################
+                orcid_api.update_record(
+                    orcid_id=orcid,
+                    token=oauth_token,
+                    request_type='work',
+                    data=orcid_xml,
+                    put_code=putcode,
+                    content_type='application/orcid+xml',
+                )
+            finally:
+                from celery.contrib import rdb; rdb.set_trace()
 
     # It's a new record: POST.
     else:
@@ -126,13 +129,16 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
         try:
             with log_time_context('Pushing new record', LOGGER), \
                     distributed_lock(lock_name, blocking=True):
-                putcode = orcid_api.add_record(
-                    orcid_id=orcid,
-                    token=oauth_token,
-                    request_type='work',
-                    data=orcid_xml,
-                    content_type='application/orcid+xml',
-                )
+                try:################################################################################################
+                    putcode = orcid_api.add_record(
+                        orcid_id=orcid,
+                        token=oauth_token,
+                        request_type='work',
+                        data=orcid_xml,
+                        content_type='application/orcid+xml',
+                    )
+                finally:
+                    from celery.contrib import rdb; rdb.set_trace()
         except Exception as exc:
             if DuplicatedExternalIdentifiersError.match(exc):
                 recache_author_putcodes(orcid, oauth_token)
@@ -149,6 +155,8 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
 
     LOGGER.info("Push of %s onto %s completed with put-code %s.", recid, orcid, putcode)
 
+    if not putcode or not new_hash:
+        raise Exception('Nooooooo')
     orcid_cache.write_record_data(recid, putcode, new_hash)
     return putcode, new_hash
 

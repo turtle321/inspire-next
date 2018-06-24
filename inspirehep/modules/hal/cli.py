@@ -41,8 +41,16 @@ def hal():
 @hal.command()
 @with_appcontext
 def push():
-    # run()
+    run()
+
+
+
+
+@hal.command()
+@with_appcontext
+def send_some_metrics():
     ping_google()
+
 
 
 @time_execution
@@ -51,3 +59,79 @@ def ping_google():
     response = requests.get('http://httpstat.us/{}'.format(status_code))
     response.raise_for_status()
     return response
+
+
+
+
+
+@hal.command()
+@with_appcontext
+def orcid_data_setup():
+    orcid = '0000-0002-7638-5686'
+    record = get_record_by_pid('lit', 1498589)
+    add_orcid_to_record_author(record, u'{}'.format(orcid))
+    create_orcid_token(orcid)
+
+
+
+
+
+
+
+from copy import deepcopy
+from invenio_records.models import RecordMetadata
+from invenio_pidstore.models import PersistentIdentifier
+from invenio_db import db
+from inspirehep.utils.record_getter import get_db_record
+from invenio_search.api import current_search_client as es
+from invenio_oauthclient.models import RemoteToken, User, RemoteAccount, UserIdentity
+
+
+def get_record_by_pid(pid_type, pid_value):
+    return RecordMetadata.query.filter(RecordMetadata.id == PersistentIdentifier.object_uuid)\
+        .filter(PersistentIdentifier.pid_value == str(pid_value),
+                PersistentIdentifier.pid_type == pid_type).one()
+
+
+def add_orcid_to_record_author(record, orcid):
+    data = deepcopy(record.json)
+    if not 'orcid' in str(data['authors'][0]['ids']).lower():
+        data['authors'][0]['ids'].append({u'schema': u'ORCID', u'value': orcid})
+        record.json = data
+        db.session.add(record)
+        db.session.commit()
+        es.indices.refresh('records-institutions')
+
+
+def create_orcid_token(orcid):
+    identity = UserIdentity.query.filter_by(id=orcid, method='orcid').first()
+    if not identity:
+        user = User()
+        db.session.add(user)
+        db.session.commit()
+        identity = UserIdentity(
+            id=orcid,
+            method='orcid',
+            id_user=user.id
+        )
+        db.session.add(identity)
+        db.session.commit()
+    user = identity.user
+    RemoteToken.create(
+        user_id=user.id,
+        client_id='myclientid',
+        token='mytoken',
+        secret=None,
+        extra_data={
+            'orcid': orcid,
+            'full_name': 'Myname',
+            'allow_push': True,
+        }
+    )
+    db.session.commit()
+
+
+# orcid = '0000-0002-7638-5686'
+# record = get_record_by_pid('lit', 1498589)
+# add_orcid_to_record_author(record, u'{}'.format(orcid))
+# create_orcid_token(orcid)

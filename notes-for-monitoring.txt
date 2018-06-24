@@ -1,0 +1,37 @@
+MONITORING PLATFORM
+===================
+docker-compose up elasticsearch logstash kibana
+
+- filebeat
+docker-compose up filebeat
+
+- grafana
+docker-compose up grafana
+
+
+ORCID STUBHUB
+=============
+cd /Users/nimiq/workspace/mitmproxy-poc
+workon mitmproxy-poc
+mitmdump -s orcid_stubhub.py
+
+
+INSPIRE-NEXT
+============
+- Prepare author's ORCID and record:
+inspirehep hal orcid_data_setup
+
+- Edit ORCID lib to use HTTP
+charm /Users/nimiq/.virtualenvs/inspire-next/src/orcid/orcid/orcid.py
+and replace all https with http
+
+- Run inspire:
+honcho start
+
+Broswe to:
+http://localhost:5000/literature/1498589
+And edit the file
+
+
+- Send some metrics:
+inspirehep hal send_some_metrics

@@ -33,3 +33,6 @@
 # timeexecution
 -e git+https://github.com/turtle321/py-timeexecution#egg=timeexecution
 -e git+https://github.com/turtle321/elasticsearch-py.git#egg=elasticsearch6
+
+# orcid
+-e git+https://github.com/turtle321/python-orcid#egg=orcid
