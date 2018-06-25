@@ -25,8 +25,10 @@
 from __future__ import absolute_import, division, print_function
 
 from itertools import chain
+
 from flask import current_app as app
 from orcid import MemberAPI
+from time_execution import time_execution
 
 from inspire_utils.logging import getStackTraceLogger
 from inspire_utils.record import get_value
@@ -47,6 +49,7 @@ from .exceptions import (
     EmptyPutcodeError,
     PutcodeNotFoundInCacheException,
 )
+from .service.client import OrcidService
 from .utils import log_time
 
 
@@ -93,7 +96,8 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
             'Pushing record #%s without BibTex, as fetching it failed!', recid
         )
 
-    orcid_api = _get_api()
+    ######orcid_api = _get_api()######################
+    client = OrcidService(oauth_token, orcid)
 
     orcid_xml = OrcidConverter(
         record, app.config['LEGACY_RECORD_URL_PATTERN'], put_code=putcode, bibtex_citation=bibtex
@@ -109,16 +113,19 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
         with log_time_context('Pushing updated record', LOGGER), \
                 distributed_lock(lock_name, blocking=True):
             try:################################################################################################
-                orcid_api.update_record(
-                    orcid_id=orcid,
-                    token=oauth_token,
-                    request_type='work',
-                    data=orcid_xml,
-                    put_code=putcode,
-                    content_type='application/orcid+xml',
-                )
+                #
+                # orcid_api.update_record(
+                #     orcid_id=orcid,
+                #     token=oauth_token,
+                #     request_type='work',
+                #     data=orcid_xml,
+                #     put_code=putcode,
+                #     content_type='application/orcid+xml',
+                # )
+                client.put_updated_work(orcid_xml, putcode)
             finally:
-                from celery.contrib import rdb; rdb.set_trace()
+                pass
+                #from celery.contrib import rdb; rdb.set_trace()
 
     # It's a new record: POST.
     else:
@@ -130,15 +137,18 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
             with log_time_context('Pushing new record', LOGGER), \
                     distributed_lock(lock_name, blocking=True):
                 try:################################################################################################
-                    putcode = orcid_api.add_record(
-                        orcid_id=orcid,
-                        token=oauth_token,
-                        request_type='work',
-                        data=orcid_xml,
-                        content_type='application/orcid+xml',
-                    )
+                    # putcode = orcid_api.add_record(
+                    #     orcid_id=orcid,
+                    #     token=oauth_token,
+                    #     request_type='work',
+                    #     data=orcid_xml,
+                    #     content_type='application/orcid+xml',
+                    # )
+                    response = client.post_new_work(orcid_xml)
+                    putcode = response.putcode
                 finally:
-                    from celery.contrib import rdb; rdb.set_trace()
+                    pass
+                    #from celery.contrib import rdb; rdb.set_trace()
         except Exception as exc:
             if DuplicatedExternalIdentifiersError.match(exc):
                 recache_author_putcodes(orcid, oauth_token)
@@ -146,7 +156,7 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
                 if not putcode:
                     raise PutcodeNotFoundInCacheException(
                         'Putcode not found in cache for recid {} after having'
-                        'recached all putcodes for the orcid {}'.format(recid, orcid))
+                        ' recached all putcodes for the orcid {}'.format(recid, orcid))
                 return push_record_with_orcid(recid, orcid, oauth_token, putcode, previous_hash)
             else:
                 raise exc
@@ -186,27 +196,45 @@ def get_author_putcodes(orcid, oauth_token):
         List[Tuple[string, string]]: list of tuples of the form
             (recid, put_code) with results.
     """
-    def timed_read_record_member(orcid, request_type, oauth_token, accept_type, put_code=None):
+    def timed_read_record_member_no_putcode(orcid, request_type, oauth_token, accept_type):
         with log_time_context(
             'Request for %s for %s' % (request_type, orcid),
             LOGGER
         ):
-            return api.read_record_member(
-                orcid,
-                'works',
-                oauth_token,
-                accept_type=accept_type,
-                put_code=put_code,
-            )
+            # return api.read_record_member(
+            #     orcid,
+            #     'works',
+            #     oauth_token,
+            #     accept_type=accept_type,
+            # )
+            return client.get_all_works()
 
-    api = _get_api()
+    def timed_read_record_member_yes_putcode(orcid, request_type, oauth_token, accept_type, putcode):
+        with log_time_context(
+            'Request for %s for %s' % (request_type, orcid),
+            LOGGER
+        ):
+            # return api.read_record_member(
+            #     orcid,
+            #     'works',
+            #     oauth_token,
+            #     accept_type=accept_type,
+            #     putcode=putcode,
+            # )
+            return client.get_works(putcode)
+
+
+    # api = _get_api()############################################
+    client = OrcidService(oauth_token, orcid)
+
     # This reads the record _summary_ (no URLs attached):
-    user_works = timed_read_record_member(
+    response = timed_read_record_member_no_putcode(
         orcid,
         'works',
         oauth_token,
         accept_type='application/orcid+json',
     )
+    user_works = response.works
 
     put_codes = []
     for summary in chain(*get_value(user_works, 'group.work-summary', [])):
@@ -223,14 +251,14 @@ def get_author_putcodes(orcid, oauth_token):
     detailed_works = []
 
     for put_code_batch in _split_lists(put_codes, WORKS_BULK_QUERY_LIMIT):
-        batch = timed_read_record_member(
+        response = timed_read_record_member_yes_putcode(
             orcid,
             'works',
             oauth_token,
             accept_type='application/orcid+json',
-            put_code=put_code_batch,
+            putcode=put_code_batch,
         )
-
+        batch = response.work
         detailed_works.extend(batch['bulk'])
 
     # Now that we have all of the detailed records, we extract recids.
@@ -265,13 +293,13 @@ def get_author_putcodes(orcid, oauth_token):
     return author_putcodes
 
 
-def _get_api():
-    """Get ORCID API.
-
-    Returns:
-        MemberAPI: ORCID API
-    """
-    client_key = app.config['ORCID_APP_CREDENTIALS']['consumer_key']
-    client_secret = app.config['ORCID_APP_CREDENTIALS']['consumer_secret']
-    sandbox = app.config['ORCID_SANDBOX']
-    return MemberAPI(client_key, client_secret, sandbox, timeout=30)
+# def _get_api():
+#     """Get ORCID API.
+#
+#     Returns:
+#         MemberAPI: ORCID API
+#     """
+#     client_key = app.config['ORCID_APP_CREDENTIALS']['consumer_key']
+#     client_secret = app.config['ORCID_APP_CREDENTIALS']['consumer_secret']
+#     sandbox = app.config['ORCID_SANDBOX']
+#     return MemberAPI(client_key, client_secret, sandbox, timeout=30)

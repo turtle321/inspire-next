@@ -28,10 +28,12 @@ and replace all https with http
 - Run inspire:
 honcho start
 
-Broswe to:
-http://localhost:5000/literature/1498589
-And edit the file
+- Push a record:
+  - 1 orcid: http://localhost:5000/literature/1498589
+  - 100 orcids: http://localhost:5000/literature/1498185
 
+- Clear orcid cache:
+inspirehep hal clear_orcid_cache
 
 - Send some metrics:
 inspirehep hal send_some_metrics

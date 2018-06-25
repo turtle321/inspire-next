@@ -1688,14 +1688,15 @@ from time_execution.backends.elasticsearch import ElasticsearchBackend
 from time_execution.backends.threaded import ThreadedBackend
 
 def status_code_hook(response, exception, metric, func_args, func_kwargs):
-    status_code = getattr(response, 'status_code', None)
+    status_code = getattr(response, 'http_status_code', None)
     if not status_code and hasattr(exception, 'response'):
         status_code = getattr(exception.response, 'status_code', None)
     if status_code:
-        return dict(
-            name='{}.{}'.format(metric['name'], status_code),
-            # my_extra_filed_name='myvalue123'
-        )
+        # return dict(
+        #     name='{}.{}'.format(metric['name'], status_code),
+        #     # my_extra_filed_name='myvalue123'
+        # )
+        return {'http_status_code': status_code}
 
 def configure_metrics():
     # Check feature flag
