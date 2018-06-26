@@ -1686,6 +1686,8 @@ FUZZY_MATCH = {
 from time_execution import settings, time_execution
 from time_execution.backends.elasticsearch import ElasticsearchBackend
 from time_execution.backends.threaded import ThreadedBackend
+from simplejson import JSONDecodeError
+
 
 def status_code_hook(response, exception, metric, func_args, func_kwargs):
     status_code = getattr(response, 'http_status_code', None)
@@ -1697,6 +1699,19 @@ def status_code_hook(response, exception, metric, func_args, func_kwargs):
         #     # my_extra_filed_name='myvalue123'
         # )
         return {'http_status_code': status_code}
+
+
+def orcid_error_code_hook(response, exception, metric, func_args, func_kwargs):
+    # TODO maybe check if the exception is an ORCID exception??
+    try:
+        error_code = exception.response.json()['error-code']
+        return {'error_code': error_code}
+    except (AttributeError, KeyError, JSONDecodeError):
+        return None
+
+
+
+
 
 def configure_metrics():
     # Check feature flag
@@ -1722,6 +1737,7 @@ def configure_metrics():
             backends=metrics_backends,
             hooks=(
                 status_code_hook,
+                orcid_error_code_hook,
             ),
             origin='inspire_next'
         )

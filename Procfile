@@ -22,7 +22,7 @@
 
 web: gunicorn inspirehep.wsgi -c gunicorn.cfg
 #worker: celery worker -E -A inspirehep.celery --loglevel=INFO --workdir="${VIRTUAL_ENV}" --pidfile="${VIRTUAL_ENV}/worker.pid" --purge -Q celery,migrator,harvests,orcid_push
-worker: HTTP_PROXY=127.0.0.1:8080 celery worker -E -A inspirehep.celery --loglevel=INFO --workdir="${VIRTUAL_ENV}" --pidfile="${VIRTUAL_ENV}/worker.pid" --purge -Q celery,migrator,harvests,orcid_push
+worker: HTTP_PROXY=127.0.0.1:8080 celery worker -E -A inspirehep.celery --loglevel=INFO --workdir="${VIRTUAL_ENV}" --pidfile="${VIRTUAL_ENV}/worker.pid" --purge -Q celery,migrator,harvests,orcid_push -c 1 2>&1 | tee /Users/nimiq/workspace/inspire-next/celery.log
 #workermon: celery flower -A inspirehep.celery
 
 

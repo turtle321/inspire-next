@@ -23,7 +23,7 @@ class OrcidService(object):
             put_code=putcode,
             content_type='application/orcid+xml',
         )
-        return PutUpdatedWorkResponse(self.memberapi, response)
+        return PutUpdatedWorkResponse(self.memberapi)
 
     @time_execution
     def post_new_work(self, xml_data):
@@ -37,7 +37,7 @@ class OrcidService(object):
         return PostNewWorkResponse(self.memberapi, response)
 
     @time_execution
-    def get_all_works(self):
+    def get_all_works(self):  # TODO rename to get_all_works_summary?
         response = self.memberapi.read_record_member(
             self.orcid,
             'works',
@@ -80,7 +80,7 @@ class OrcidService(object):
         return GetAllWorksResponse(self.memberapi, response)
 
     @time_execution
-    def get_works(self, putcode):
+    def get_works(self, putcode):  # TODO rename to get_works_details?
         response = self.memberapi.read_record_member(
             self.orcid,
             'works',

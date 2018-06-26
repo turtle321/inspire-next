@@ -188,17 +188,25 @@ def get_literature_recids_for_orcid(orcid):
     return [el['control_number'] for el in search_by_curated_author]
 
 
+import traceback
+
 @contextmanager
 def log_time_context(name, logger):
     initial = time.time()
     status = 'succeed'
+    exception = None
     try:
         yield
-    except Exception:
+    except Exception as exc:
         status = 'fail'
+        exception = exc
         raise
     finally:
         logger.info('%s took %s to %s', name, time.time() - initial, status)
+        if exception:
+            logger.info(traceback.format_exc())
+            logger.info('Response:\n{}'.format(exception.response.__dict__))
+            logger.info('Request:\n{}'.format(exception.response.request.__dict__))
 
 
 def log_time(logger):

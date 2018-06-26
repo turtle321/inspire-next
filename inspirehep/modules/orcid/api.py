@@ -112,8 +112,6 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
         )
         with log_time_context('Pushing updated record', LOGGER), \
                 distributed_lock(lock_name, blocking=True):
-            try:################################################################################################
-                #
                 # orcid_api.update_record(
                 #     orcid_id=orcid,
                 #     token=oauth_token,
@@ -123,9 +121,6 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
                 #     content_type='application/orcid+xml',
                 # )
                 client.put_updated_work(orcid_xml, putcode)
-            finally:
-                pass
-                #from celery.contrib import rdb; rdb.set_trace()
 
     # It's a new record: POST.
     else:
@@ -136,7 +131,6 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
         try:
             with log_time_context('Pushing new record', LOGGER), \
                     distributed_lock(lock_name, blocking=True):
-                try:################################################################################################
                     # putcode = orcid_api.add_record(
                     #     orcid_id=orcid,
                     #     token=oauth_token,
@@ -146,9 +140,6 @@ def push_record_with_orcid(recid, orcid, oauth_token, putcode=None, old_hash=Non
                     # )
                     response = client.post_new_work(orcid_xml)
                     putcode = response.putcode
-                finally:
-                    pass
-                    #from celery.contrib import rdb; rdb.set_trace()
         except Exception as exc:
             if DuplicatedExternalIdentifiersError.match(exc):
                 recache_author_putcodes(orcid, oauth_token)
@@ -182,6 +173,7 @@ def recache_author_putcodes(orcid, oauth_token):
     record_putcodes = get_author_putcodes(orcid, oauth_token)
     cache = OrcidCache(orcid)
     for fetched_recid, fetched_putcode in record_putcodes:
+        LOGGER.info('Caching orcid={}, recid={}, putcode={}'.format(orcid, fetched_recid, fetched_putcode))
         cache.write_record_data(fetched_recid, fetched_putcode, None)
 
 
