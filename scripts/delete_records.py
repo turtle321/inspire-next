@@ -17,12 +17,15 @@ from invenio_records_files.models import RecordsBuckets
 from invenio_records.models import RecordMetadata
 
 
-def _delete_record(record):
-    rec_bucket = RecordsBuckets.query.filter(RecordsBuckets.record == record).one()
-    bucket = rec_bucket.bucket
-    ObjectVersion.query.filter(ObjectVersion.bucket == bucket).delete()
-    db.session.delete(bucket)
-    db.session.delete(rec_bucket)
+def _delete_record_exc(record):
+    try:
+        rec_bucket = RecordsBuckets.query.filter(RecordsBuckets.record == record).one()
+        bucket = rec_bucket.bucket
+        ObjectVersion.query.filter(ObjectVersion.bucket == bucket).delete()
+        db.session.delete(bucket)
+        db.session.delete(rec_bucket)
+    except Exception:
+        pass
     PersistentIdentifier.query.filter(PersistentIdentifier.object_uuid == record.id).delete()
     db.session.delete(record)
     db.session.commit()
