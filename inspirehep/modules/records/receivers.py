@@ -27,7 +27,6 @@ from __future__ import absolute_import, division, print_function
 import uuid
 import logging
 
-from celery import Task
 from flask import current_app
 from flask_sqlalchemy import models_committed
 from elasticsearch import NotFoundError
@@ -48,6 +47,7 @@ from invenio_records.signals import (
 from inspire_utils.record import get_value
 
 from inspirehep.modules.authors.utils import phonetic_blocks
+from inspirehep.modules.orcid import tasks as orcid_tasks
 from inspirehep.modules.orcid.utils import (
     get_push_access_tokens,
     get_orcids_for_push,
@@ -134,14 +134,11 @@ def push_to_orcid(sender, record, *args, **kwargs):
     if 'control_number' not in record:
         return
 
-    task_name = current_app.config['ORCID_PUSH_TASK_ENDPOINT']
-
     orcids = get_orcids_for_push(record)
     orcids_and_tokens = get_push_access_tokens(orcids)
+
     for orcid, access_token in orcids_and_tokens:
-        push_to_orcid_task = Task()
-        push_to_orcid_task.name = task_name
-        push_to_orcid_task.apply_async(
+        orcid_tasks.orcid_push.apply_async(
             queue='orcid_push',
             kwargs={
                 'orcid': orcid,

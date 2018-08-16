@@ -28,6 +28,8 @@ import os
 import sys
 import pkg_resources
 
+import inspire_service_orcid.conf
+
 from celery.schedules import crontab
 from logging.config import dictConfig
 
@@ -1117,8 +1119,6 @@ INDEXER_BULK_REQUEST_TIMEOUT = float(900)
 
 # OAuthclient
 # ===========
-ORCID_SANDBOX = True
-
 orcid.REMOTE_MEMBER_APP['params']['request_token_params'] = {
     'scope': ' '.join([
         '/read-limited',
@@ -1130,11 +1130,6 @@ orcid.REMOTE_MEMBER_APP['params']['request_token_params'] = {
 
 orcid.REMOTE_MEMBER_APP['signup_handler']['setup'] = 'inspirehep.modules.orcid.utils.account_setup'
 
-ORCID_APP_CREDENTIALS = {
-    'consumer_key': 'CHANGE_ME',
-    'consumer_secret': 'CHANGE_ME',
-}
-
 orcid.REMOTE_MEMBER_APP['remember'] = True
 OAUTHCLIENT_REMOTE_APPS = {
     'orcid': orcid.REMOTE_MEMBER_APP,
@@ -1143,10 +1138,21 @@ OAUTHCLIENT_ORCID_CREDENTIALS = {
     'consumer_key': 'CHANGE_ME',
     'consumer_secret': 'CHANGE_ME',
 }
-ORCID_PUSH_TASK_ENDPOINT = 'inspirehep.modules.orcid.tasks.orcid_push'
 ORCID_ALLOW_PUSH_DEFAULT = False
 
 OAUTHCLIENT_SETTINGS_TEMPLATE = 'inspirehep_theme/page.html'
+
+# Inspire service client for ORCID.
+ORCID_APP_CREDENTIALS = {
+    'consumer_key': 'CHANGE_ME',
+    'consumer_secret': 'CHANGE_ME',
+}
+inspire_service_orcid.conf.settings.configure(
+    DO_USE_SANDBOX=False,
+    CONSUMER_KEY=ORCID_APP_CREDENTIALS['consumer_key'],
+    CONSUMER_SECRET=ORCID_APP_CREDENTIALS['consumer_secret'],
+    REQUEST_TIMEOUT=30,
+)
 
 # Error Pages
 # ========
