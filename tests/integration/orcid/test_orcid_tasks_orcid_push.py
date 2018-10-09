@@ -149,3 +149,60 @@ class TestOrcidPush(object):
         self.mock_pusher.assert_called_once_with(self.orcid, self.recid, self.oauth_token)
         self.mock_pusher.return_value.push.assert_called_once()
         mock_orcid_push_task_retry.assert_not_called()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from factories.db.invenio_records import TestRecordMetadata
+from inspirehep.modules.orcid.cache import OrcidCache
+from inspirehep.modules.orcid import exceptions
+
+
+@pytest.mark.usefixtures('isolated_app')
+class TestOrcidPushXXX(object):
+    def setup(self):
+        factory = TestRecordMetadata.create_from_file(__name__, 'test_orcid_models_TestOrcidPusherPostNewWork.json')
+        self.orcid = '0000-0002-0942-3697'
+        self.recid = factory.record_metadata.json['control_number']
+        self.inspire_record = factory.inspire_record
+        self.cache = OrcidCache(self.orcid, self.recid)
+        from flask import current_app  # Note: isolated_app not available in setup().
+        # Pick the token from local inspirehep.cfg first.
+        self.oauth_token = current_app.config['ORCID_APP_CREDENTIALS'].get('oauth_tokens', {}).get(self.orcid, 'mytoken')
+        self.source_client_id_path = '0000-0001-8607-8906'
+
+    def teardown(self):
+        self.cache.redis.delete(self.cache._key)
+
+    def test_push_new_work_happy_flow(self):
+        with override_config(ORCID_APP_CREDENTIALS={'consumer_key': self.source_client_id_path}):
+            orcid_push(self.orcid, self.recid, self.oauth_token)
+        assert not self.cache.has_work_content_changed(self.inspire_record)
+
+    def test_push_new_work_invalid_data_orcid(self):
+        orcid = '0000-0002-0000-XXXX'
+
+        with pytest.raises(exceptions.InputDataInvalidException):
+            orcid_push(orcid, self.recid, self.oauth_token)
+
+    def test_push_new_work_already_existent(self):
+        with override_config(ORCID_APP_CREDENTIALS={'consumer_key': self.source_client_id_path}):
+            orcid_push(self.orcid, self.recid, self.oauth_token)
+        assert not self.cache.has_work_content_changed(self.inspire_record)
+
